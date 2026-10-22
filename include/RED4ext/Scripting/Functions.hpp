@@ -88,12 +88,12 @@ struct CBaseFunction : IFunction
     CCompiledCode bytecode;         // 78
     Flags flags;                    // A8
     int32_t unkAC;                  // AC
-    // Game 2.5 (exe 3.0.88.46235): the base function grew by 0x40. Its ctor 0x6BD564 builds two 0x18-byte
-    // members at +0xB0 and +0xC8 (0x69F970) and zeroes +0xE8; NativeGlobalFunction's ctor (0xB488F8) writes
+    // Game 2.5 (exe 3.0.88.46235): the base function grew by 0x40. Its ctor 0x6BD564 builds members
+    // at +0xB0 and +0xC8 (0x69F970; the second spans to +0xE8) and zeroes +0xE8; NativeGlobalFunction's ctor (0xB488F8) writes
     // regIndex at +0xF0, NativeMemberFunction's (0x6BECE4) the parent at +0xF0 and regIndex at +0xF8.
     // With the 2.31 sizes the engine ctors wrote past the SDK's allocation.
     uint8_t unkB0[0x18];            // B0
-    uint8_t unkC8[0x18];            // C8
+    uint8_t unkC8[0x20];            // C8
     uint64_t unkE8;                 // E8
 
 private:
