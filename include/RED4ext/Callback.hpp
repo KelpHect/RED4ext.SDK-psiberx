@@ -9,7 +9,14 @@
 
 namespace RED4ext
 {
-constexpr size_t DefaultFixedCallbackBufferSize = 32;
+// Game 2.5 (exe 3.0.88.46235) grew the engine's default fixed callback from a 32-byte to a 64-byte inline buffer
+// (handler at +0x40, element 0x48). Evidence: CRTTISystem::AddRegisterCallback (vtable slot 0xC0, 2.5 RVA 0x2017C50)
+// appends through 0x2017F60, which divides by 72 (imul 0x0E38E38E38E38E39), grows by 0x48 and reads the handler at
+// [rdi+0x40] (0x2018019); 2.31 (3.0.80.51928) read it at [rsi+0x20] and divided by 40 (0x140BBD2EC).
+// Explicitly sized callbacks did not change: gameIEntitySpawnerEventsBroadcaster::RegisterListener (2.5 RVA 0x88CE88)
+// still moves a 32-byte callback (handler at [rbp+0x20]). The flex callback is unchanged too: res::ResourceToken::OnLoaded
+// (2.5 RVA 0x5CFD20) moves it with the handler at +0x18 and the size at +0x28 (0x5CFF84).
+constexpr size_t DefaultFixedCallbackBufferSize = 64;
 constexpr size_t DefaultFlexCallbackBufferSize = 24;
 
 template<typename R, typename... Args>
@@ -213,6 +220,14 @@ private:
 };
 RED4EXT_ASSERT_SIZE(Callback<void (*)()>, DefaultFixedCallbackBufferSize + 0x8);
 RED4EXT_ASSERT_OFFSET(Callback<void (*)()>, handler, DefaultFixedCallbackBufferSize);
+RED4EXT_ASSERT_SIZE(Callback<void (*)()>, 0x48);         // game 2.5: was 0x28
+RED4EXT_ASSERT_OFFSET(Callback<void (*)()>, handler, 0x40); // game 2.5: was 0x20
+namespace Detail
+{
+using Callback32 = Callback<void (*)(), 32>;
+}
+RED4EXT_ASSERT_SIZE(Detail::Callback32, 0x28);
+RED4EXT_ASSERT_OFFSET(Detail::Callback32, handler, 0x20);
 
 template<typename T, size_t InlineSize = DefaultFlexCallbackBufferSize>
 class FlexCallback;
@@ -460,5 +475,7 @@ protected:
     }
 };
 RED4EXT_ASSERT_SIZE(FlexCallback<void (*)()>, DefaultFlexCallbackBufferSize + 0x18);
+RED4EXT_ASSERT_SIZE(FlexCallback<void (*)()>, 0x30);
+RED4EXT_ASSERT_OFFSET(FlexCallback<void (*)()>, handler, 0x18);
 RED4EXT_ASSERT_OFFSET(FlexCallback<void (*)()>, extendedSize, DefaultFlexCallbackBufferSize + 0x10);
 } // namespace RED4ext
