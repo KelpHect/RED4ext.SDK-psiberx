@@ -155,60 +155,70 @@ struct CBaseEngine
     int16_t unk5A;                             // 5A
     int32_t interopStartingPort;               // 5C
     int64_t unk60;                             // 60
-    int64_t unk68;                             // 68
-    CString scriptsCompilationErrors;          // 70
-    DynArray<CString> scriptsValidationErrors; // 90
-    int64_t unkA0;                             // A0
-    int64_t unkA8;                             // A8
-    int64_t unkB0;                             // B0
-    int64_t unkB8;                             // B8
-    uint8_t padC0[0x10];                       // C0
-    UnkD0* unkD0;                              // D0
-    double unkD8;                              // D8
-    double unkE0;                              // E0
-    int32_t unkE8;                             // E8
-    int64_t unkF0;                             // F0
-    int64_t unkF8;                             // F8
-    int64_t unk100;                            // 100
-    volatile EEngineState engineState;         // 108
-    int32_t unk10C;                            // 10C
-    int32_t unk110;                            // 110
-    Unk108* unk118;                            // 118
-    Unk110 unk120;                             // 120
-    CString buildString;                       // 130
-    CString scriptsBlobPath;                   // 150
-    int32_t unk170;                            // 170
-    int8_t unk174;                             // 174
-    int64_t unk178;                            // 178
-    int64_t unk180;                            // 180
-    int64_t unk188;                            // 188
-    int64_t unk190;                            // 190
-    int8_t unk198[178];                        // 198
-    int32_t unk24C;                            // 24C
-    int8_t unk250[64];                         // 250
-    DynArray<void*> unk290;                    // 290
-    DynArray<void*> unk2A0;                    // 2A0
-    int64_t unk2B0;                            // 2B0
-    int64_t unk2B8;                            // 2B8
-    int64_t unk2C0;                            // 2C0
-    int64_t unk2C8;                            // 2C8
-    int32_t unk2D0;                            // 2D0
-    bool isEP1;                                // 2D4 - IsEP1()
+    uint8_t unk68[0x90 - 0x68];                // 68 - grew by 0x20 in 2.5
+    CString scriptsCompilationErrors;          // 90
+    DynArray<CString> scriptsValidationErrors; // B0
+    int64_t unkC0;                             // C0
+    int64_t unkC8;                             // C8
+    int64_t unkD0_;                            // D0
+    int64_t unkD8;                             // D8
+    uint8_t padE0[0x10];                       // E0
+    UnkD0* unkD0;                              // F0
+    double unkF8;                              // F8
+    double unk100;                             // 100
+    int32_t unk108;                            // 108
+    int64_t unk110;                            // 110
+    int64_t unk118;                            // 118
+    int64_t unk120;                            // 120
+    volatile EEngineState engineState;         // 128
+    int32_t unk12C;                            // 12C
+    int32_t unk130;                            // 130
+    Unk108* unk138;                            // 138
+    Unk110 unk140;                             // 140
+    CString buildString;                       // 150
+    CString scriptsBlobPath;                   // 170
+    int32_t unk190;                            // 190
+    int8_t unk194;                             // 194
+    int64_t unk198;                            // 198
+    int64_t unk1A0;                            // 1A0
+    int64_t unk1A8;                            // 1A8
+    int64_t unk1B0;                            // 1B0
+    int8_t unk1B8[178];                        // 1B8
+    int32_t unk26C;                            // 26C
+    int8_t unk270[64];                         // 270
+    DynArray<void*> unk2B0;                    // 2B0
+    DynArray<void*> unk2C0;                    // 2C0
+    int64_t unk2D0;                            // 2D0
     int64_t unk2D8;                            // 2D8
     int64_t unk2E0;                            // 2E0
+    int64_t unk2E8;                            // 2E8
+    int32_t unk2F0;                            // 2F0
+    bool isEP1;                                // 2F4 - IsEP1()
+    uint8_t unk2F8[0x318 - 0x2F8];             // 2F8 - new in 2.5
+    int64_t unk318;                            // 318
+    int64_t unk320;                            // 320
 };
-RED4EXT_ASSERT_SIZE(CBaseEngine, 0x2E8);
+// Game 2.5 (3.0.88.46235): the RTTI size of CBaseEngine is 0x2D8 -> 0x318 (registration 0x158C6CC); this struct
+// also holds the next 0x10 bytes. Its constructor (2.31 0x1250CE8, 2.5 0xA59C44) stores the same values up to 0x60
+// (`mov dword ptr [rcx+0x54], 0x1000000` in both: scriptsLoaded unchanged), then every member from 0x70 on sits
+// 0x20 higher: the CString at 0x70 (2.31 byte [rcx+0x70], dword [+0x84], qword [+0x88]) is at 0x90 (byte [rbx+0x90],
+// dword [+0xA4], qword [+0xA8]); the DynArray at 0x90 is at 0xB0; Unk110 0x120 -> 0x140 (2.31 `mov byte ptr
+// [rbx+0x120], 2`, 2.5 `mov byte ptr [rbx+0x140], 2`); scriptsBlobPath 0x150 -> 0x170; isEP1 0x2D4 -> 0x2F4 (2.31
+// `mov byte ptr [rbx+0x2D4], sil`, 2.5 `mov byte ptr [rbx+0x2F4], sil`); 2.5 adds `lea rcx, [rbx+0x2F8]`.
+// UnkD0's own fields (hWnd, isClipped) are not re-derived for 2.5.
+RED4EXT_ASSERT_SIZE(CBaseEngine, 0x328);
 RED4EXT_ASSERT_OFFSET(CBaseEngine, scriptsLoaded, 0x54);
-RED4EXT_ASSERT_OFFSET(CBaseEngine, unkD0, 0xD0);
-RED4EXT_ASSERT_OFFSET(CBaseEngine, scriptsValidationErrors, 0x90);
-RED4EXT_ASSERT_OFFSET(CBaseEngine, scriptsBlobPath, 0x150);
-RED4EXT_ASSERT_OFFSET(CBaseEngine, isEP1, 0x2D4);
+RED4EXT_ASSERT_OFFSET(CBaseEngine, unkD0, 0xF0);
+RED4EXT_ASSERT_OFFSET(CBaseEngine, scriptsValidationErrors, 0xB0);
+RED4EXT_ASSERT_OFFSET(CBaseEngine, scriptsBlobPath, 0x170);
+RED4EXT_ASSERT_OFFSET(CBaseEngine, isEP1, 0x2F4);
 
 struct BaseGameEngine : CBaseEngine
 {
-    int64_t unk2E8; // 2E8
+    int64_t unk328; // 328
 };
-RED4EXT_ASSERT_SIZE(BaseGameEngine, 0x2F0);
+// Game 2.5: RTTI size 0x2E0 -> 0x320; its constructor's one store moved 0x2D8 -> 0x318 (2.31 0x1250C60, 2.5 0xA59BBC).
+RED4EXT_ASSERT_SIZE(BaseGameEngine, 0x330);
 
 struct CGameEngine : BaseGameEngine
 {
@@ -225,22 +235,26 @@ struct CGameEngine : BaseGameEngine
 
     static CGameEngine* Get();
 
-    int64_t unk2F0;                       // 2F0
-    int64_t unk2F8;                       // 2F8
-    int32_t unk300;                       // 300
-    int32_t unk304;                       // 304
-    CGameFramework* framework;            // 308
-    services::GameServices* gameServices; // 310
-    int64_t unk318;                       // 318
-    int64_t unk320;                       // 320
-    int64_t unk328;                       // 328
     int64_t unk330;                       // 330
     int64_t unk338;                       // 338
     int32_t unk340;                       // 340
-    int64_t unk348;                       // 348
+    int32_t unk344;                       // 344
+    CGameFramework* framework;            // 348
+    services::GameServices* gameServices; // 350
+    int64_t unk358;                       // 358
+    int64_t unk360;                       // 360
+    int64_t unk368;                       // 368
+    int64_t unk370;                       // 370
+    int64_t unk378;                       // 378
+    int32_t unk380;                       // 380
+    int64_t unk388;                       // 388
 };
-RED4EXT_ASSERT_SIZE(CGameEngine, 0x350);
-RED4EXT_ASSERT_OFFSET(CGameEngine, framework, 0x308);
+// Game 2.5 (3.0.88.46235): RTTI size 0x350 -> 0x390 (registration 0x15BB1FC). Every constructor store moved by 0x40
+// (2.31 0x1250B28, 2.5 0xA59A84): [rbx+0x2E0] -> [rbx+0x320], byte [rbx+0x2E8] -> [rbx+0x328], [rbx+0x308] ->
+// [rbx+0x348] (framework), [rbx+0x310] -> [rbx+0x350], `lea rcx, [rbx+0x340]` -> `lea rcx, [rbx+0x380]`.
+RED4EXT_ASSERT_SIZE(CGameEngine, 0x390);
+RED4EXT_ASSERT_OFFSET(CGameEngine, framework, 0x348);
+RED4EXT_ASSERT_OFFSET(CGameEngine, gameServices, 0x350);
 } // namespace RED4ext
 
 #ifdef RED4EXT_HEADER_ONLY

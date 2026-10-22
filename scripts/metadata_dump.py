@@ -200,6 +200,71 @@ def load_rtti_live(root: Path) -> Schema:
     return sc
 
 
+def overlay_retail(sc: Schema, retail_path: Path, base_path: Path | None) -> dict:
+    """Overlay a retail layout scan (scripts/retail_layouts.py on the new exe) on a schema loaded from an older live
+    dump: class sizes, alignments, parents and own property offsets come from the new exe's registration code, the
+    property types stay the old dump's. `base_path` is the same scan of the old exe; it tells a property the new exe
+    no longer registers (dropped) from one the scanner never located (kept only while its class is unchanged).
+    Returns a report: per class what changed, with the exe sites."""
+    new = json.loads(retail_path.read_text(encoding="utf-8"))["classes"]
+    base = json.loads(base_path.read_text(encoding="utf-8"))["classes"] if base_path else {}
+    rep = {"resized": [], "moved": [], "dropped": [], "unverified": [], "removedClasses": [], "newProps": [],
+           "reparented": [], "realigned": [], "overlaps": []}
+    for n in list(sc.classes):
+        c = sc.classes[n]
+        r = new.get(n)
+        if r is None:
+            if n in base:
+                rep["removedClasses"].append(n)
+                del sc.classes[n]
+            continue
+        old_size = c["size"]
+        if r["size"] is not None and r["size"] != c["size"]:
+            rep["resized"].append({"class": n, "old": c["size"], "new": r["size"], "site": r["ctorSite"]})
+            c["size"] = r["size"]
+        # trust a new alignment only where the same read on the old exe agreed with the old dump (2.31:
+        # 8,246 of 8,247; vehicleCinematicCameraShot is stored twice and read wrong)
+        b_al = base.get(n, {}).get("align")
+        if r.get("align") and r["align"] != c["align"] and (not base or b_al == c["align"]):
+            rep["realigned"].append({"class": n, "old": c["align"], "new": r["align"], "site": r["alignSite"]})
+            c["align"] = r["align"]
+        if r.get("parent") and r["parent"] != c["parent"]:
+            rep["reparented"].append({"class": n, "old": c["parent"], "new": r["parent"], "site": r["parentSite"]})
+            c["parent"] = r["parent"]
+        changed = c["size"] != old_size or any(
+            pn in r["props"] and r["props"][pn]["off"] != off for pn, _, off in c["props"])
+        props = []
+        for pn, ts, off in c["props"]:
+            rp = r["props"].get(pn)
+            if rp is not None:
+                if rp["off"] != off:
+                    rep["moved"].append({"class": n, "prop": pn, "old": off, "new": rp["off"], "site": rp["site"]})
+                props.append((pn, ts, rp["off"]))
+            elif pn in base.get(n, {}).get("props", {}):
+                rep["dropped"].append({"class": n, "prop": pn, "old": off})
+            elif changed:
+                rep["unverified"].append({"class": n, "prop": pn, "old": off})
+            else:
+                props.append((pn, ts, off))
+        known = {pn for pn, _, _ in c["props"]} | set(base.get(n, {}).get("props", {}))
+        for pn, rp in r["props"].items():
+            if pn not in known:
+                rep["newProps"].append({"class": n, "prop": pn, "off": rp["off"], "site": rp["site"]})
+        props.sort(key=lambda p: p[2])
+        c["props"] = props
+    for n, c in sc.classes.items():
+        ps = c["props"]
+        for (an, at, ao), (bn, bt, bo) in zip(ps, ps[1:]):
+            if ao + sc.type(at).size > bo:
+                rep["overlaps"].append({"class": n, "a": an, "aOff": ao, "aSize": sc.type(at).size, "b": bn, "bOff": bo})
+        if ps:
+            ln, lt, lo = ps[-1]
+            if lo + sc.type(lt).size > c["size"]:
+                rep["overlaps"].append({"class": n, "a": ln, "aOff": lo, "aSize": sc.type(lt).size, "b": "<end>",
+                                        "bOff": c["size"]})
+    return rep
+
+
 # ---------------------------------------------------------------------------------------------------- naming
 UNIQUE_NS = (("AI", False), ("GpuApi", True), ("GpuWrapApiVertexPacking", True), ("GpuWrapApi", True))
 
@@ -468,6 +533,9 @@ def main(argv=None):
     src.add_argument("--metadata", type=Path)
     src.add_argument("--rtti-live", type=Path)
     ap.add_argument("--script-index", type=Path)
+    ap.add_argument("--retail", type=Path, help="a retail_layouts.py scan of the target exe, overlaid on --rtti-live")
+    ap.add_argument("--retail-base", type=Path, help="the same scan of the --rtti-live dump's exe")
+    ap.add_argument("--retail-report", type=Path, help="write the overlay's changes (JSON)")
     ap.add_argument("--sdk-include", type=Path, default=Path(__file__).resolve().parents[1] / "include")
     ap.add_argument("--out", type=Path, help="write the headers under <out>/RED4ext/...")
     ap.add_argument("--only", help="comma-separated native class names")
@@ -476,6 +544,11 @@ def main(argv=None):
     a = ap.parse_args(argv)
 
     sc = load_metadata(a.metadata, a.script_index) if a.metadata else load_rtti_live(a.rtti_live)
+    if a.retail:
+        rep = overlay_retail(sc, a.retail, a.retail_base)
+        print("retail overlay: " + ", ".join("%s %d" % (k, len(v)) for k, v in rep.items()))
+        if a.retail_report:
+            a.retail_report.write_text(json.dumps(rep, indent=1), encoding="utf-8")
     nm = Naming(list(sc.classes) + list(sc.enums) + list(sc.bitfields) + sorted(sc.extra_names))
     maps = build_maps(sc)
     only = set(a.only.split(",")) if a.only else None
