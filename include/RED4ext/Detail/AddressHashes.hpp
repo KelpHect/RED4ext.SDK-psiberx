@@ -151,7 +151,10 @@ constexpr std::uint32_t ISerializable_sub_30 = 0x6D63649;
 constexpr std::uint32_t ISerializable_sub_40 = 0x88B30FF9;
 constexpr std::uint32_t ISerializable_sub_78 = 0xA1D93993;
 constexpr std::uint32_t ISerializable_sub_A0 = 0xED221B32;
-constexpr std::uint32_t ISerializable_sub_C0 = 0x80201C35;
+// Game 2.5: was 0x80201C35 (gone from the 2.5 table). 0xDBE91251 resolves to RVA 0x22370C, the shared body of
+// ISerializable vtable slot 0xC0 in 6,116 of 6,252 vtables with OnSerialize at +0x40, matching scripts/patterns.py
+// "ISerializable sub_C0" (index 0 of 15 hits) and byte-identical to 2.31's slot 0xC0 (0x1404B0D9C).
+constexpr std::uint32_t ISerializable_sub_C0 = 0xDBE91251;
 constexpr std::uint32_t ISerializable_Counter = 2630817091;
 #pragma endregion
 
@@ -244,12 +247,22 @@ constexpr std::uint32_t TweakDB_CreateRecord = 0x3201127A;
 #pragma endregion
 
 #pragma region UpdateRegistrar
-constexpr std::uint32_t UpdateRegistrar_RegisterGroupUpdate = 0xFD914605;
-constexpr std::uint32_t UpdateRegistrar_RegisterBucketUpdate = 0x192F4EA2;
+// Game 2.5: the hashes changed because the callback parameter's type did (B1, 32 -> 64 byte buffer): each new hash
+// differs from the old one by +2 in the low word and +0x4E (= 2 * 39) in the high word, an Adler-style shift of one
+// mangled-name character ('C' -> 'E' in the template argument 0x20 -> 0x40). Was 0xFD914605 / 0x192F4EA2.
+// Group 0xFDDF4607 -> RVA 0x20B5370 (79 callers): (registrar, group dl, CClass* r8, name r9, callback [entry+0x28]);
+//   same constants as 2.31 (0x624D54): word 0xC @0x20B5419, kind 0xA @0x20B5467; handler read at +0x40.
+// Bucket 0x197D4EA4 -> RVA 0x20B5270 (29 callers, table symbol UpdatableSystemRegistrar::RegisterInternal):
+//   (registrar, mask dl, stage r8b, CClass* r9, name [entry+0x28], callback [entry+0x30]); kind 0xD @0x20B5304.
+constexpr std::uint32_t UpdateRegistrar_RegisterGroupUpdate = 0xFDDF4607;
+constexpr std::uint32_t UpdateRegistrar_RegisterBucketUpdate = 0x197D4EA4;
 #pragma endregion
 
 #pragma region DeferredDataBuffer
 constexpr std::uint32_t DeferredDataBuffer_LoadAsync = 4125893577;
+// Game 2.5: MISSING from the 2.5 table and not re-derived (no symbol row; no candidate among LoadAsync's 8 callers, the
+// four users of the +0x55 lock, or near-hash rows). Only DeferredDataBuffer::LoadCopyAsync uses it; Codeware, TweakXL and
+// NCT do not call that. A caller that gates on every SDK hash must leave this one out on 2.5.
 constexpr std::uint32_t DeferredDataBuffer_LoadRefAsync = 1459046115;
 #pragma endregion
 
